@@ -119,7 +119,7 @@ fn handle_transfer(message: Message, remote_addr: SocketAddr) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_true() {
         assert!(true);
