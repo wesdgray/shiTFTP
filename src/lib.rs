@@ -1,5 +1,5 @@
 use log::{debug, error, info, warn};
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Message {
     Read {
         filename: String,
@@ -45,6 +45,7 @@ impl Message {
                 let mut c: Vec<u8> = Vec::new();
                 c.extend([0, 0]);
                 c.extend(filename.clone().into_bytes());
+                c.extend(mode.to_string().into_bytes());
                 c
             }
             _ => {
@@ -84,42 +85,89 @@ pub enum ErrorCode {
     NoSuchUser = 0x7,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Mode {
     NetAscii,
     Octet,
     Mail,
 }
 
+impl ToString for Mode {
+    fn to_string(&self) -> String {
+        match self {
+            Mode::NetAscii => "netascii".to_string(),
+            Mode::Octet => "octet".to_string(),
+            Mode::Mail => "mail".to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    #[test]
-    fn setup() {
-        let _ = env_logger::try_init();
+    #[ctor::ctor]
+    fn init_logger() {
+        let _ = env_logger::builder()
+            .format_file(true)
+            .format_line_number(true)
+            .is_test(true)
+            .try_init();
     }
     #[test]
     fn test_encode_read() {
-        setup();
         let read = Message::Read {
             filename: "foo".to_string(),
             mode: Mode::NetAscii,
         };
-        info!("test: Read Message Encoding as: {:?}", read.encode());
+        debug!("test: Read Message Encoding as: {:?}", read.encode());
+        assert_eq!(vec![0, 0, 102, 111, 111, 110, 101, 116, 97, 115, 99, 105, 105], read.encode());
     }
 
     #[test]
     fn test_decode_read() {
-        setup();
+        // Read Message with filename: foo and mode: NetAscii
         let read = [0, 0, 102, 111, 111];
         let read_msg = Message::decode(&read);
         match read_msg {
             Ok(msg) => {
-                info!("test: Read Message decoded: {:?}", msg);
+                debug!("test: Read Message decoded: {:?}", msg);
             }
             Err(e) => {
-                warn!("There was err: {:?}", e);
+                debug!("There was err: {:?}", e);
             }
         }
+        assert_eq!(
+            Message::Read {
+                filename: "foo".to_owned(),
+                mode: Mode::NetAscii
+            },
+            Message::decode(&read).unwrap()
+        );
     }
+    #[test]
+    fn test_encode_write() {
+        let write = Message::Write{filename: "foo".to_owned(), mode: Mode::NetAscii};
+        debug!("{:?}", write);
+    }
+
+    #[test]
+    fn test_decode_write() {}
+
+    #[test]
+    fn test_encode_data() {}
+
+    #[test]
+    fn test_decode_data() {}
+
+    #[test]
+    fn test_encode_ack() {}
+
+    #[test]
+    fn test_decode_ack() {}
+
+    #[test]
+    fn test_encode_error() {}
+
+    #[test]
+    fn test_decode_error() {}
 }
