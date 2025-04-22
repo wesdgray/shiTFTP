@@ -1,7 +1,7 @@
 use log::{debug, error, info, warn};
 
 /// Message has the following binary format
-/// 
+///
 /// # Read/Write
 ///  ```
 ///  2 bytes     string    1 byte     string   1 byte
@@ -68,12 +68,11 @@ pub enum State {
 }
 
 impl Message {
-    
-    const READ: u16 = 0;
-    const WRITE: u16 = 1;
-    const DATA: u16 = 2;
-    const ACK: u16 = 3;
-    const ERROR: u16 = 4;
+    pub const READ: u16 = 0;
+    pub const WRITE: u16 = 1;
+    pub const DATA: u16 = 2;
+    pub const ACK: u16 = 3;
+    pub const ERROR: u16 = 4;
 
     pub fn op_code(&self) -> u16 {
         match &self {
@@ -84,7 +83,7 @@ impl Message {
             Message::Error { .. } => Self::ERROR,
         }
     }
-    
+
     pub fn encode(&self) -> Vec<u8> {
         match self {
             msg @ Message::Read { filename, mode } => {
@@ -99,20 +98,20 @@ impl Message {
                 c.extend(mode.to_string().into_bytes());
                 c.push(0x0);
                 c
-            },
+            }
             msg @ Message::Write { filename, mode } => {
                 info!(
                     "Message.encode: Operation: Write, filename:{}, mode: {:?}",
-                     filename, mode
+                    filename, mode
                 );
-                let mut c : Vec<u8> = vec![];
+                let mut c: Vec<u8> = vec![];
                 c.extend(msg.op_code().to_be_bytes());
                 c.extend(filename.clone().into_bytes());
                 c.push(0x0);
                 c.extend(mode.to_string().into_bytes());
                 c.push(0x0);
                 c
-            },
+            }
             _ => {
                 error!("not impl!");
                 vec![]
@@ -127,41 +126,37 @@ impl Message {
             return Err(());
         }
         let (op_code, remainder) = buff.split_at(2);
-        let op_code= u16::from_be_bytes(op_code.try_into().unwrap());
+        let op_code = u16::from_be_bytes(op_code.try_into().unwrap());
 
         match op_code {
             Self::READ => {
-                let maybe_args: Vec<_> = remainder.split(|x| *x == 0x0)
+                let maybe_args: Vec<_> = remainder
+                    .split(|x| *x == 0x0)
                     .filter(|x| !x.is_empty())
                     .collect();
                 if maybe_args.len() != 2 {
                     error!("Expected 2 arguments but found: {}", maybe_args.len());
                     error!("Value: {:?}", maybe_args);
-                    return Err(())
+                    return Err(());
                 }
                 let filename = String::from_utf8(maybe_args[0].to_vec()).unwrap();
                 let mode = Mode::from_bytes(maybe_args[1]).unwrap();
-                Ok(Message::Read {
-                    filename,
-                    mode,
-                })
-            },
+                Ok(Message::Read { filename, mode })
+            }
             Self::WRITE => {
-                let maybe_args: Vec<_> = remainder.split(|x| *x == 0x0)
+                let maybe_args: Vec<_> = remainder
+                    .split(|x| *x == 0x0)
                     .filter(|x| !x.is_empty())
                     .collect();
                 if maybe_args.len() != 2 {
                     error!("Expected 2 arguments but found: {}", maybe_args.len());
                     error!("Value: {:?}", maybe_args);
-                    return Err(())
+                    return Err(());
                 }
                 let filename = String::from_utf8(maybe_args[0].to_vec()).unwrap();
                 let mode = Mode::from_bytes(maybe_args[1]).unwrap();
-                Ok(Message::Write {
-                    filename,
-                    mode,
-                })
-            },
+                Ok(Message::Write { filename, mode })
+            }
             x => {
                 debug!("not impl, found: {:?}", x);
                 Err(())
@@ -193,7 +188,7 @@ impl Mode {
             b"netascii" => Some(Mode::NetAscii),
             b"octet" => Some(Mode::Octet),
             b"mail" => Some(Mode::Mail),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -226,13 +221,18 @@ mod test {
             mode: Mode::NetAscii,
         };
         debug!("test: Read Message Encoding as: {:?}", read.encode());
-        assert_eq!(vec![0, 0, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0], read.encode());
+        assert_eq!(
+            vec![0, 0, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0],
+            read.encode()
+        );
     }
 
     #[test]
     fn test_decode_read() {
         // Read Message with filename: foo and mode: NetAscii
-        let read = [0, 0, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0];
+        let read = [
+            0, 0, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0,
+        ];
         let read_msg = Message::decode(&read);
         match read_msg {
             Ok(msg) => {
@@ -252,21 +252,28 @@ mod test {
     }
     #[test]
     fn test_encode_write() {
-        let obj = Message::Write{filename: "foo".to_owned(), mode: Mode::NetAscii};
-        let bytes = [0, 1, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0];
+        let obj = Message::Write {
+            filename: "foo".to_owned(),
+            mode: Mode::NetAscii,
+        };
+        let bytes = [
+            0, 1, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0,
+        ];
         debug!("{:?}", obj);
-        assert_eq!(
-            Message::encode(&obj),
-            bytes
-        )
+        assert_eq!(Message::encode(&obj), bytes)
     }
 
     #[test]
     fn test_decode_write() {
-        let bytes = [0, 1, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0];
+        let bytes = [
+            0, 1, 102, 111, 111, 0, 110, 101, 116, 97, 115, 99, 105, 105, 0,
+        ];
         assert_eq!(
             Message::decode(&bytes).unwrap(),
-            Message::Write { filename: "foo".to_owned(), mode: Mode::NetAscii }
+            Message::Write {
+                filename: "foo".to_owned(),
+                mode: Mode::NetAscii
+            }
         );
     }
 

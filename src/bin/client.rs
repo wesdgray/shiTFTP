@@ -1,5 +1,5 @@
+use shiTFTP::*;
 use std::net::UdpSocket;
-use tftp_rs::*;
 
 fn main() {
 <<<<<<< Updated upstream
@@ -7,7 +7,7 @@ fn main() {
     let socket = UdpSocket::bind("127.0.0.1:42069").unwrap();
     socket.connect("127.0.0.1:69").unwrap();
     let sent = socket.send(buf).unwrap();
-    let read_msg = Message::Read {
+    let read_msg = Message::Write {
         filename: "my_file".to_owned(),
         mode: Mode::NetAscii,
     };

@@ -252,6 +252,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "shiTFTP"
+version = "0.1.0"
+dependencies = [
+ "ctor",
+ "env_logger",
+ "log",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -260,15 +269,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tftp-rs"
-version = "0.1.0"
-dependencies = [
- "ctor",
- "env_logger",
- "log",
 ]
 
 [[package]]
