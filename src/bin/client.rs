@@ -1,8 +1,36 @@
+use crate::Message;
+use clap::Parser;
 use shiTFTP::*;
-use std::net::UdpSocket;
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+
+#[derive(Parser, Debug)]
+struct Cli {
+    #[command(subcommand)]
+    commands: Commands,
+}
+#[derive(Parser, Debug)]
+enum Commands {
+    Read {
+        server: SocketAddr,
+        filename: String,
+    },
+    Write {
+        server: SocketAddr,
+        filename: String,
+    },
+}
 
 fn main() {
-<<<<<<< Updated upstream
+    let cli = Cli::parse();
+
+    match &cli.commands {
+        Commands::Read { filename, server } => {
+            println!("Read the file: {} from {}", filename, server);
+        }
+        Commands::Write { filename, server } => {
+            println!("Write the file: {} to {}", filename, server);
+        }
+    }
     let buf = "123456789".as_bytes();
     let socket = UdpSocket::bind("127.0.0.1:42069").unwrap();
     socket.connect("127.0.0.1:69").unwrap();
@@ -79,3 +107,12 @@ fn main() {
     }
 >>>>>>> Stashed changes
 }
+
+fn connect_to_server(addr: String) -> SocketAddr {
+    addr.to_socket_addrs().unwrap();
+    "127.0.0.1:69".parse().unwrap()
+}
+
+fn handle_read() {}
+
+fn handle_write() {}

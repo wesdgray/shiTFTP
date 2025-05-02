@@ -18,23 +18,23 @@ fn main() {
 
         let read = buf.to_vec();
         debug!("Vec len {} | values: {:?}", read.len(), read);
+        debug!("{}", String::from_utf8(read.clone()).unwrap());
 
-        let msg = String::from_utf8(read.clone()).unwrap();
-        debug!("{}", msg);
-
-        if let Ok(msg) = Message::decode(&buf) {
-            match msg.op_code() {
-                Message::WRITE | Message::READ => {
-                    let req_socket = UdpSocket::bind("127.0.0.1:0");
-                    let remote_addr = req_socket.unwrap().local_addr().unwrap();
-                    threads.handles.push(thread::spawn(handle_write(remote_addr)));
-                }
-                _ => {
-                    warn!("{:?} tried to initiate with a non R/W request", sender);
-                    warn!("Decoded as {:?}", msg);
-                }
-            }
-        }
+        // let mut op_code: [u8; 2];
+        // op_code.clone_from_slice(&buf[0..2]);
+        // if let op_code = u16::from_be_bytes(op_code) {
+        //     match op_code {
+        //         Message::WRITE => {
+        //             let req_socket = UdpSocket::bind("127.0.0.1:0");
+        //             let remote_addr = req_socket.unwrap().local_addr().unwrap();
+        //             threads.handles.push(thread::spawn(handle_write(remote_addr)));
+        //         }
+        //         _ => {
+        //             warn!("{:?} tried to initiate with a non R/W request", sender);
+        //             warn!("Decoded as {:?}", msg);
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -42,7 +42,7 @@ struct ThreadJoiner {
     handles: Vec<thread::JoinHandle<()>>,
 }
 
-impl ThreadJoiner  {
+impl ThreadJoiner {
     fn new() -> Self {
         ThreadJoiner { handles: vec![] }
     }
@@ -50,8 +50,8 @@ impl ThreadJoiner  {
 
 impl Drop for ThreadJoiner {
     fn drop(&mut self) {
-        for thread in &self.handles {
-            *thread.join();
+        while let Some(handle) = self.handles.pop() {
+            let _ = handle.join();
         }
     }
 }
