@@ -1,7 +1,8 @@
 use crate::Message;
 use clap::Parser;
+use log::info;
 use shiTFTP::*;
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+use std::{fs::File, io::{BufReader, BufWriter, Write}, net::{SocketAddr, ToSocketAddrs, UdpSocket}};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -25,8 +26,34 @@ fn main() {
 
     match &cli.commands {
         Commands::Read { filename, server } => {
-            println!("Read the file: {} from {}", filename, server);
+            info!("Read the file: {} from {}", filename, server);
+            let read_req = Message::Read { filename: filename.to_string(), mode: Mode::NetAscii };
+            let socket = UdpSocket::bind("127.0.0.0:0").unwrap();
+            
+            let recv = socket.send_to(read_req.encode().as_slice(), server).unwrap();
+            let mut buf = [0_u8; 2+2+512];
+            let mut block_num = 1;
+            let file = File::create(filename).unwrap();
+            let mut writer = BufWriter::new(file); 
+
+            loop {
+                let (read_bytes, recv_from) = socket.recv_from(&mut buf).unwrap();
+                if let Ok(Message::Data{ block_num: ack_block_num, data }) = buf.as_slice().try_into() {
+                    if block_num == ack_block_num {
+                        let _ = writer.write(&data).unwrap();
+                        let ack_msg = Message::Ack { block_num };
+                        // TODO: Ensure the ack was received before incrementing block_num
+                        let _ = socket.send_to(ack_msg.encode().as_slice(), recv_from).unwrap();
+                        block_num += 1;
+                    }
+
+                    if read_bytes < 512 {
+                        break;
+                    }
+                }
+            }
         }
+
         Commands::Write { filename, server } => {
             println!("Write the file: {} to {}", filename, server);
         }

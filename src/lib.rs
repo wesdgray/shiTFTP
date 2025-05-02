@@ -92,8 +92,8 @@ impl TryFrom<&[u8]> for Message {
                 let (filename, mode) = decode_rw_message(message)?;
                 Ok(Message::Write { filename, mode })
             }
-            x => {
-                error!("Didn't match: {:?}", x);
+            op_code => {
+                warn!("`{:?}` is not a valid op_code", op_code);
                 Err(())
             }
         }
@@ -296,5 +296,4 @@ mod test {
             assert!(false);
         }
     }
-
 }
