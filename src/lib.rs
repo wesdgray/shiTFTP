@@ -43,16 +43,11 @@ pub enum Message {
         mode: Mode,
     },
     Data {
-<<<<<<< Updated upstream
-        block_num: usize,
-        data: [u8; 512],
-=======
         block_num: u16,
         data: Vec<u8>,
->>>>>>> Stashed changes
     },
     Ack {
-        block_num: usize,
+        block_num: u16,
     },
     Error {
         error_code: usize,
@@ -75,22 +70,39 @@ fn decode_rw_message(bytes: &[u8]) -> Result<(String, Mode), ()> {
     Ok((filename, mode))
 }
 
+fn hash_data(data: &[u8]) -> String {
+    hex::encode(blake3::hash(data).as_bytes())[..6].to_string()
+}
+
 impl TryFrom<&[u8]> for Message {
     type Error = ();
     fn try_from(value: &[u8]) -> Result<Self, <Message as TryFrom<&[u8]>>::Error> {
         let (op_code, message) = value.split_at(2);
         debug!("op_code: {:?}", op_code);
-        debug!("message: {:?}", message);
         match u16::from_be_bytes(op_code.try_into().map_err(|_| ())?) {
             Message::READ => {
-                debug!("Read message: {:?}", message);
                 let (filename, mode) = decode_rw_message(message)?;
                 Ok(Message::Read { filename, mode })
             }
             Message::WRITE => {
-                debug!("Write message: {:?}", message);
                 let (filename, mode) = decode_rw_message(message)?;
                 Ok(Message::Write { filename, mode })
+            }
+            Message::DATA => {
+                let (block_num, data) = message.split_at(2);
+                let block_num = u16::from_be_bytes(block_num.try_into().map_err(|_| ())?);
+                debug!("Blocknum: {block_num}");
+                let hashed_data = hash_data(&data);
+                debug!("Data: {hashed_data}");
+                let data = data.to_vec();
+
+                Ok(Message::Data { block_num, data })
+            }
+            Message::ACK => {
+                debug!("Ack message: {:?}", message);
+                Ok(Message::Ack {
+                    block_num: u16::from_be_bytes(message.try_into().unwrap()),
+                })
             }
             op_code => {
                 warn!("`{:?}` is not a valid op_code", op_code);
@@ -161,6 +173,24 @@ impl Message {
                 c.push(0x0);
                 c.extend(mode.to_string().into_bytes());
                 c.push(0x0);
+                c
+            }
+            msg @ Message::Data { block_num, data } => {
+                debug!(
+                    "Message.encode: Operation: Data, block_num: {}, data: {:?}",
+                    block_num, data
+                );
+                let mut c: Vec<u8> = vec![];
+                c.extend(msg.op_code().to_be_bytes());
+                c.extend(block_num.to_be_bytes());
+                c.extend(data);
+                c
+            }
+            msg @ Message::Ack { block_num } => {
+                debug!("message.encode: Operation: Ack, block_num: {block_num}");
+                let mut c: Vec<u8> = vec![];
+                c.extend(msg.op_code().to_be_bytes());
+                c.extend(block_num.to_be_bytes());
                 c
             }
             _ => {
@@ -295,5 +325,48 @@ mod test {
         } else {
             assert!(false);
         }
+    }
+
+    #[test]
+    fn test_data_message_try_from_u8_slice() {
+        let msg: &[u8] = &[
+            0, 2, 0, 1, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115,
+            116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50,
+            51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116,
+            101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116,
+            49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115,
+            116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50,
+            51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116,
+            101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116,
+            49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115,
+            116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50,
+            51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116,
+            101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116,
+            49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115,
+            116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50,
+            51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116,
+            101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116,
+            49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115,
+            116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50,
+            51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116,
+            101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116,
+            49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+            116, 101, 115, 116, 49, 50, 51, 10, 116, 101, 115, 116, 49, 50, 51, 10,
+        ];
+
+        let data = TryInto::<Message>::try_into(msg);
+        error!("{:?}", data);
+    }
+
+    #[test]
+    fn test_ack_message_try_from_u8_slice() {
+        let msg: &[u8] = &[0, 3, 0, 1];
+        let ack = TryInto::<Message>::try_into(msg);
+        error!("{:?}", ack);
     }
 }
