@@ -1,17 +1,32 @@
 use log::{debug, error, info, warn};
 use std::fs::File;
+use std::io::{BufReader, Read};
 use std::net::SocketAddr;
 use std::{net::UdpSocket, path::PathBuf, thread};
 
-use crate::protocol::Mode;
 use crate::protocol::Message;
+use crate::protocol::Mode;
 
 struct Server {
     socket: UdpSocket,
-    receive_dir: PathBuf,
-    send_dir: PathBuf,
+    root_dir: PathBuf,
     mode: Mode,
     threads: ThreadJoiner,
+    buf: [u8; 1024],
+}
+
+impl Server {
+    fn new(listen_addr: SocketAddr, root_dir: PathBuf, mode: Mode) -> Result<Self, ()> {
+        let socket = UdpSocket::bind(listen_addr).map_err(|_| ())?;
+        let threads = ThreadJoiner::new();
+        let buf = [0_u8; 1024];
+        Ok(Self {
+            socket,
+            root_dir,
+            mode,
+            threads,
+        })
+    }
 }
 
 struct ThreadJoiner {
@@ -32,7 +47,6 @@ impl Drop for ThreadJoiner {
     }
 }
 
-
 fn read_request(filename: String, mode: Mode) {
     info!("Starting Read request for filename: {}", filename);
     // TODO: Need to disallow .. and absolute paths
@@ -50,10 +64,7 @@ fn read_request(filename: String, mode: Mode) {
         let mut data = buf.to_vec();
         data.truncate(bytes_read);
 
-        let data = Message::Data {
-            block_num,
-            data,
-        };
+        let data = Message::Data { block_num, data };
         debug!("Read {bytes_read} bytes from disk");
 
         // TODO: some kind of timeout
@@ -86,11 +97,11 @@ fn write_request(filename: String, mode: Mode) {
     info!("Filename: {filename}, mode: {mode:?}");
 }
 
-fn handle_transfer(message: Message, remote_addr: SocketAddr) {
+fn handle_request(message: Message, remote_addr: SocketAddr) {
     debug!("Remote Address: {:?}", remote_addr);
     match message {
-        Message::Read { filename, mode, } => read_request(filename, mode),
-        Message::Write { filename, mode, } => write_request(filename, mode), 
+        Message::Read { filename, mode } => read_request(filename, mode),
+        Message::Write { filename, mode } => write_request(filename, mode),
         _ => {
             // TODO: Send an error back to the client
             error!("Transfers must be either be a Message::Read or Message::Write!");
